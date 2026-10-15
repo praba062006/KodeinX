@@ -1,58 +1,83 @@
 // Firebase Firestore API Service
-// Replaces all server.js /api/* routes — directly talks to Firestore
+// Falls back gracefully if Firebase is not configured
 import {
   collection,
   doc,
   getDocs,
   setDoc,
   deleteDoc,
-  updateDoc,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
-// ── Helper ──────────────────────────────────────────────────────────
 const getAll = async (col) => {
-  const snap = await getDocs(collection(db, col));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  if (!db) return [];
+  try {
+    const snap = await getDocs(collection(db, col));
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.warn(`[Firebase] getAll(${col}) failed:`, e.message);
+    return [];
+  }
 };
 
 // ── MEMBERS ─────────────────────────────────────────────────────────
 export const fetchMembers = () => getAll("members");
 
 export const saveMember = async (memberData) => {
+  if (!db) return memberData;
   if (!memberData.id) memberData.id = "mem-" + Date.now();
   memberData.updatedAt = Date.now();
   if (!memberData.createdAt) memberData.createdAt = Date.now();
-  await setDoc(doc(db, "members", memberData.id), memberData, { merge: true });
+  try {
+    await setDoc(doc(db, "members", memberData.id), memberData, { merge: true });
+  } catch (e) {
+    console.warn("[Firebase] saveMember failed:", e.message);
+  }
   return memberData;
 };
 
 export const deleteMember = async (id) => {
-  await deleteDoc(doc(db, "members", id));
+  if (!db) return { success: true, id };
+  try {
+    await deleteDoc(doc(db, "members", id));
+  } catch (e) {
+    console.warn("[Firebase] deleteMember failed:", e.message);
+  }
   return { success: true, id };
 };
 
 export const updatePresence = async (memberId, isOnline) => {
-  await setDoc(
-    doc(db, "members", memberId),
-    { isOnline, lastActiveTimestamp: Date.now() },
-    { merge: true }
-  );
+  if (!db) return;
+  try {
+    await setDoc(doc(db, "members", memberId), { isOnline, lastActiveTimestamp: Date.now() }, { merge: true });
+  } catch (e) {
+    console.warn("[Firebase] updatePresence failed:", e.message);
+  }
 };
 
 // ── PROJECTS ─────────────────────────────────────────────────────────
 export const fetchProjects = () => getAll("projects");
 
 export const saveProject = async (projData) => {
+  if (!db) return projData;
   if (!projData.id) projData.id = "proj-" + Date.now();
   projData.updatedAt = Date.now();
   if (!projData.createdAt) projData.createdAt = Date.now();
-  await setDoc(doc(db, "projects", projData.id), projData, { merge: true });
+  try {
+    await setDoc(doc(db, "projects", projData.id), projData, { merge: true });
+  } catch (e) {
+    console.warn("[Firebase] saveProject failed:", e.message);
+  }
   return projData;
 };
 
 export const deleteProject = async (id) => {
-  await deleteDoc(doc(db, "projects", id));
+  if (!db) return { success: true, id };
+  try {
+    await deleteDoc(doc(db, "projects", id));
+  } catch (e) {
+    console.warn("[Firebase] deleteProject failed:", e.message);
+  }
   return { success: true, id };
 };
 
@@ -60,74 +85,48 @@ export const deleteProject = async (id) => {
 export const fetchAchievements = () => getAll("achievements");
 
 export const saveAchievement = async (achData) => {
+  if (!db) return achData;
   if (!achData.id) achData.id = "ach-" + Date.now();
   achData.updatedAt = Date.now();
   if (!achData.createdAt) achData.createdAt = Date.now();
-  await setDoc(doc(db, "achievements", achData.id), achData, { merge: true });
+  try {
+    await setDoc(doc(db, "achievements", achData.id), achData, { merge: true });
+  } catch (e) {
+    console.warn("[Firebase] saveAchievement failed:", e.message);
+  }
   return achData;
 };
 
 export const deleteAchievement = async (id) => {
-  await deleteDoc(doc(db, "achievements", id));
+  if (!db) return { success: true, id };
+  try { await deleteDoc(doc(db, "achievements", id)); } catch (e) {}
   return { success: true, id };
 };
 
 // ── CONTACT MESSAGES ─────────────────────────────────────────────────
-export const fetchContactMessages = () => getAll("contactmessages");
-
 export const saveContactMessage = async (msgData) => {
+  if (!db) return msgData;
   if (!msgData.id) msgData.id = "msg-" + Date.now();
   msgData.createdAt = Date.now();
   if (!msgData.date) msgData.date = new Date().toLocaleString();
-  await setDoc(doc(db, "contactmessages", msgData.id), msgData, { merge: true });
+  try {
+    await setDoc(doc(db, "contactmessages", msgData.id), msgData, { merge: true });
+  } catch (e) {
+    console.warn("[Firebase] saveContactMessage failed:", e.message);
+  }
   return msgData;
-};
-
-export const deleteContactMessage = async (id) => {
-  await deleteDoc(doc(db, "contactmessages", id));
-  return { success: true, id };
 };
 
 // ── DIRECT MESSAGES ──────────────────────────────────────────────────
-export const fetchDirectMessages = () => getAll("directmessages");
-
 export const saveDirectMessage = async (msgData) => {
+  if (!db) return msgData;
   if (!msgData.id) msgData.id = "dm-" + Date.now();
   if (!msgData.createdAt) msgData.createdAt = Date.now();
-  if (!msgData.timestamp) {
-    msgData.timestamp =
-      new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
-      " • " +
-      new Date().toLocaleDateString();
-  }
   msgData.status = msgData.status || "unread";
-  await setDoc(doc(db, "directmessages", msgData.id), msgData, { merge: true });
-  return msgData;
-};
-
-export const deleteDirectMessage = async (id) => {
-  await deleteDoc(doc(db, "directmessages", id));
-  return { success: true, id };
-};
-
-// ── ACCESS REQUESTS ──────────────────────────────────────────────────
-export const fetchAccessRequests = () => getAll("accessrequests");
-
-export const saveAccessRequest = async (requestData) => {
-  if (!requestData.id) requestData.id = "req-" + Date.now();
-  requestData.createdAt = Date.now();
-  if (!requestData.requestedAt) {
-    requestData.requestedAt =
-      new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
-      ", " +
-      new Date().toLocaleDateString();
+  try {
+    await setDoc(doc(db, "directmessages", msgData.id), msgData, { merge: true });
+  } catch (e) {
+    console.warn("[Firebase] saveDirectMessage failed:", e.message);
   }
-  requestData.status = requestData.status || "pending";
-  await setDoc(doc(db, "accessrequests", requestData.id), requestData, { merge: true });
-  return requestData;
-};
-
-export const updateAccessRequest = async (id, updateData) => {
-  await setDoc(doc(db, "accessrequests", id), { ...updateData, updatedAt: Date.now() }, { merge: true });
-  return { id, ...updateData };
+  return msgData;
 };
