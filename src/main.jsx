@@ -1,10 +1,11 @@
 import React from 'react'
-import ReactDOM from 'react-dom/client'
 import './index.css'
-import TeamProfileApp from './TeamProfileApp'
+import App from './App'
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+const root = document.getElementById('root')
+import ReactDOM from 'react-dom/client'
+ReactDOM.createRoot(root).render(
   <React.StrictMode>
-    <TeamProfileApp />
-  </React.StrictMode>,
+    <App />
+  </React.StrictMode>
 )
